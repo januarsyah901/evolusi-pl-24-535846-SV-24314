@@ -1,0 +1,112 @@
+name: Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  # TAHAP 1: BUILD
+  build:
+    name: Build (Composer Install)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Kode Repositori
+        uses: actions/checkout@v4
+
+      - name: Setup PHP Runtime
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite
+          coverage: none
+
+      - name: Pasang Dependensi Produksi (composer install)
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - name: Simpan Artifact Rilis (vendor)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rilis-vendor
+          path: vendor/
+          retention-days: 1
+
+  # TAHAP 2: TEST
+  test:
+    name: Test (PHPUnit Automated Test)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Kode Repositori
+        uses: actions/checkout@v4
+
+      - name: Setup PHP Runtime
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite
+          coverage: none
+
+      - name: Pasang Seluruh Dependensi Pengujian
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Siapkan Konfigurasi Lingkungan (.env)
+        run: cp .env.example .env
+
+      - name: Generate Application Key
+        run: php artisan key:generate
+
+      - name: Jalankan Unit & Feature Test (artisan test)
+        run: php artisan test
+
+  # TAHAP 3: STAGING
+  staging:
+    name: Staging Deployment
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Kode Repositori
+        uses: actions/checkout@v4
+
+      - name: Simulasi Deployment ke Server Staging
+        run: |
+          echo "=================================================="
+          echo "       MEMULAI DEPLOYMENT KE SERVER STAGING        "
+          echo "=================================================="
+          echo "1. Mempersiapkan lingkungan staging..."
+          echo "2. Melakukan sinkronisasi release artifact..."
+          echo "3. Menjalankan migrasi basis data staging..."
+          echo "4. Menjalankan smoke test endpoint..."
+          echo "Server staging siap diakses untuk pengujian internal!"
+          echo "=================================================="
+
+  # TAHAP 4: PRODUCTION
+  production:
+    name: Production Deployment (Slide 6)
+    needs: staging
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout Kode Repositori
+        uses: actions/checkout@v4
+
+      - name: Eksekusi 7 Langkah deploy.sh (Slide 6)
+        run: |
+          echo "=================================================="
+          echo "     MEMULAI 7 LANGKAH DEPLOYMENT PRODUKSI        "
+          echo "=================================================="
+          echo "[Langkah 1/7] php artisan down --retry=60 (Kunci pintu - tampilkan halaman pemeliharaan)"
+          echo "[Langkah 2/7] git pull origin main (Ambil kode terbaru)"
+          echo "[Langkah 3/7] composer install --no-dev --optimize-autoloader (Pasang dependensi produksi)"
+          echo "[Langkah 4/7] php artisan migrate --force (Ubah skema basis data secara otomatis)"
+          echo "[Langkah 5/7] php artisan config:cache && route:cache && view:cache (Bangun ulang seluruh cache konfigurasi dan rute)"
+          echo "[Langkah 6/7] php artisan queue:restart (Muat ulang proses pekerja antrean)"
+          echo "[Langkah 7/7] php artisan up (Buka pintu kembali - situs produksi aktif)"
+          echo "=================================================="
+          echo "DEPLOYMENT PRODUCTION BERHASIL DISELESAIKAN SECARA OTOMATIS"
+          echo "=================================================="
