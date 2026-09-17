@@ -14,7 +14,7 @@ class KasusHukumTest extends TestCase
     {
         $response = $this->get('/');
 
-        $response->assertStatus(200)
+        $response->assertStatus(500) // Sengaja digagalkan untuk membuktikan pipeline berhenti merah (Slide 17)
             ->assertJson([
                 'status' => 'active',
             ]);
