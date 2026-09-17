@@ -1,116 +1,88 @@
-# evolusi-pl-535846
+# evolusi-pl-24-535846-SV-24314
 
-> **Konstruksi & Evolusi Perangkat Lunak (2026)**  
-> **Dosen Pengampu:** Galih Malela Damaraji, S.Pd., M.Eng. ([@alesana001](https://github.com/alesana001))
+[![Deployment Pipeline](https://github.com/januarsyah901/evolusi-pl-24-535846-SV-24314/actions/workflows/deploy.yml/badge.svg)](https://github.com/januarsyah901/evolusi-pl-24-535846-SV-24314/actions/workflows/deploy.yml)
 
-[![CI](https://github.com/januarsyah901/evolusi-pl-535846/actions/workflows/ci.yml/badge.svg)](https://github.com/januarsyah901/evolusi-pl-535846/actions/workflows/ci.yml)
+Repositori Praktikum Mata Kuliah **Konstruksi & Evolusi Perangkat Lunak (KEPL)** — Pertemuan 03: *Continuous Deployment untuk Laravel*.
 
----
-
-## 👤 Identitas Mahasiswa
-
-| Informasi | Keterangan |
-|---|---|
-| **Nama** | Januarsyah Akbar |
-| **NIM** | 24/535846/SV/24314 |
-| **Program Studi** | Teknologi Rekayasa Perangkat Lunak (TRPL) |
-| **Departemen** | Teknik Elektro dan Informatika |
-| **Fakultas / Sekolah** | Sekolah Vokasi, Universitas Gadjah Mada |
+- **Nama Mahasiswa:** Januarsyah Akbar
+- **NIM:** 24/535846/SV/24314
+- **Dosen Pengampu:** Galih Malela Damaraji, S.Pd., M.Eng.
+- **Institusi:** Universitas Gadjah Mada
 
 ---
 
-## 📖 Tentang Aplikasi
+## 🏛️ Gambaran Proyek
 
-Aplikasi backend RESTful API untuk **Platform Transparansi Hukum** yang dibangun menggunakan **Express.js**, **Prisma ORM**, **PostgreSQL**, dan dokumentasi interaktif **Swagger / OpenAPI**.
-
-### Modul Utama:
-- **Autentikasi & Otorisasi:** JWT token, hashing kata sandi (`bcryptjs`), Role-Based Access Control (`SUPER_ADMIN`, `EDITOR`, `VIEWER`, `CONTRIBUTOR`).
-- **Manajemen Kasus Hukum:** Pelaporan, Penyidikan, Penuntutan, Persidangan, Putusan.
-- **Kontribusi Publik & Review:** Pengajuan bukti dan fakta hukum oleh kontributor publik.
-- **Dashboard & Analitik:** Agregasi statistik kasus dan log aktivitas.
-- **Healthcheck & Monitoring:** Endpoint pemantauan ketersediaan dan status sistem secara real-time.
+Proyek ini adalah implementasi RESTful API Platform Transparansi Penanganan Kasus Hukum (**Sampaimana**) yang dibangun menggunakan framework **Laravel 11**. Sistem ini mengelola data kasus hukum (nomor kasus, judul, kategori perkara, tahapan status, serta keterangan proses hukum) dengan pengujian otomatis (*automated testing*) dan pipeline CI/CD empat tahap.
 
 ---
 
-## 🛠️ Menjalankan Proyek & Pengujian
+## 🚀 Alur Pipeline CI/CD (GitHub Actions)
 
-### Prasyarat
-- Node.js versi 20 ke atas
-- npm (versi 10+)
+Alur otomatisasi didefinisikan pada `.github/workflows/deploy.yml` dengan empat tahapan berurutan (*sequential jobs*) yang dirangkai menggunakan direktif `needs:`:
 
-### Instalasi Dependensi
+```text
+[ build ] ───(needs)───> [ test ] ───(needs)───> [ staging ] ───(needs)───> [ production ]
+  composer                 artisan                 echo                    hanya branch main
+  install                  test                    simulasi                environment: production
+```
+
+1. **Job 1 (`build`):** Memasang dependensi produksi menggunakan `composer install --no-dev --optimize-autoloader` dan menyimpan *release artifact* folder `vendor/`.
+2. **Job 2 (`test`):** Menjalankan pengujian otomatis PHPUnit via `php artisan test` dengan basis data SQLite in-memory, isolasi konfigurasi `.env`, dan `php artisan key:generate`.
+3. **Job 3 (`staging`):** Melakukan simulasi deployment otomatis ke lingkungan server tiruan (*staging*) tanpa risiko.
+4. **Job 4 (`production`):** Menjalankan deployment rilis ke server produksi. Job ini dilindungi dengan dua aturan:
+   - **Branch Guard:** Hanya dieksekusi pada branch `main` (`if: github.ref == 'refs/heads/main'`). Pada branch fitur atau dev, job ini otomatis di-*skip*.
+   - **Environment Protection:** Menggunakan GitHub Environment `production` dengan *required reviewer*.
+
+---
+
+## 📜 7 Langkah Deployment Script (`deploy.sh` - Slide 6)
+
+Skrip `deploy.sh` menerapkan opsi `set -e` agar proses deployment langsung berhenti secara aman jika terjadi kegagalan pada salah satu perintah:
+
 ```bash
-npm install
+#!/usr/bin/env bash
+set -e # berhenti bila ada perintah gagal
+cd /var/www/aplikasi
+
+# 1 · Kunci pintu — tampilkan halaman pemeliharaan
+php artisan down --retry=60
+
+# 2 · Ambil kode terbaru
+git pull origin main
+
+# 3 · Pasang dependensi (tanpa paket dev)
+composer install --no-dev --optimize-autoloader
+
+# 4 · Ubah skema basis data. --force = jangan tanya
+php artisan migrate --force
+
+# 5 · Bangun ulang cache dengan kode & config baru
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# 6 · Muat ulang pekerja antrean
+php artisan queue:restart
+
+# 7 · Buka pintu kembali
+php artisan up
 ```
 
-### Menjalankan Pengujian Unit & Endpoint
+---
+
+## 🛠️ Menjalankan Pengujian Lokal
+
 ```bash
-npm test
+# Salin konfigurasi lingkungan
+cp .env.example .env
+
+# Pasang dependensi
+composer install
+
+# Buat application key
+php artisan key:generate
+
+# Jalankan automated tests
+php artisan test
 ```
-
-### Memeriksa Sintaks Kode (Linting)
-```bash
-npm run lint
-```
-
-### Menjalankan Server Lokal
-```bash
-npm run dev
-# Server aktif di http://localhost:5000
-# Dokumentasi Swagger di http://localhost:5000/api-docs
-```
-
----
-
-## 🌿 Alur Branch (Git Flow)
-
-Kode **tidak pernah** di-push langsung ke branch `main`. Setiap perubahan wajib melalui tahapan integrasi bertingkat via Pull Request:
-
-```
-feature/<nama-fitur>  ---(PR)---->  dev  ---(Release PR)--->  main
-   [Pengembangan Fitur]          [Integrasi & CI]         [Rilis Stabil]
-```
-
-| Branch | Peran | Boleh Push Langsung? |
-|---|---|:---:|
-| `feature/<sesuatu>` | Pengembangan fitur spesifik (siklus hidup pendek) | **Ya** |
-| `dev` | Tempat integrasi seluruh fitur dan validasi pengujian bersama | **Tidak** (Wajib via PR dari `feature/*`) |
-| `main` | Kondisi stabil dan siap rilis | **Tidak** (Wajib via PR dari `dev`) |
-
----
-
-## 🤖 Alur CI (GitHub Actions)
-
-Pipeline pada `.github/workflows/ci.yml` menjalankan **dua job paralel** pada setiap `push` dan `pull_request` ke branch `dev` maupun `main`:
-
-1. **`lint` (Lint & Validasi Sintaks)** — Memvalidasi seluruh sintaks JavaScript (`node --check`) dan memeriksa keabsahan skema Prisma (`npx prisma validate`).
-2. **`uji` (Uji Unit & Endpoint)** — Menginisialisasi Prisma Client dan menjalankan automated test suite menggunakan test runner bawaan (`node:test`).
-
-Kedua job diproteksi lewat *Branch Protection Rules* pada branch `dev` dan `main`.
-
----
-
-## 📝 Format Conventional Commits
-
-Standar pesan commit yang diterapkan pada repository ini:
-- `feat:` Penambahan fitur baru ke aplikasi
-- `fix:` Perbaikan bug / isu pada kode
-- `test:` Penambahan atau perbaikan unit test
-- `ci:` Konfigurasi pipeline CI/CD GitHub Actions
-- `docs:` Pembaruan atau penambahan dokumentasi
-- `chore:` Pemeliharaan konfigurasi / dependensi proyek
-
----
-
-## ✅ Checklist Standar Repositori & Pipeline
-
-- [x] Repository publik bernama `evolusi-pl-535846`
-- [x] Minimal 5 commit bergaya [Conventional Commits](https://www.conventionalcommits.org/)
-- [x] Branch `feature/<sesuatu>` dengan perubahan nyata
-- [x] Pull Request `feature/*` -> `dev`, lalu `dev` -> `main`
-- [x] `.github/workflows/ci.yml` berisi minimal dua job yang berhasil (hijau)
-- [x] Branch protection rule pada `dev` dan `main`
-- [x] Dosen diundang sebagai kolaborator (role: Read)
-- [x] `README.md` terstruktur dan `.gitignore` terpasang
-<!-- CI Status: 100% Passed -->
-<!-- CI Status: 100% Passed -->
